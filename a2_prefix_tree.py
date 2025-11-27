@@ -149,6 +149,31 @@ class SimplePrefixTree(Autocompleter):
                 num += len(subtree)
         return num
 
+    def insert(self, value: Any, weight: float, prefix: list) -> None:
+        """Insert the given value into this Tree.
+
+        The value is inserted with the given weight, and is associated with
+        the prefix sequence <prefix>.
+
+        If the value has already been inserted into this autocompleter
+        (compare values using ==), then the given weight should be *added* to
+        the existing weight of this value.
+
+        Preconditions:
+        - weight > 0
+        - the given value is either:
+            1) not in this Autocompleter, or
+            2) was previously inserted with the SAME prefix sequence
+        """
+        # value = regular word
+        # prefix = letters in the word
+        # weight = if its a leaf make it the root
+
+        iteration = 0
+        tree = SimplePrefixTree()
+
+
+
     ###########################################################################
     # Extra helper methods
     ###########################################################################

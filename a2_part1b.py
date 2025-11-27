@@ -134,7 +134,10 @@ class Tree:
               30
         <BLANKLINE>
         """
-        # while n > 0:
+        if n != 0:
+            self._subtrees.append(Tree(item, []))
+            self._subtrees[-1].insert_repeat(item, n-1)
+
 
 
 
