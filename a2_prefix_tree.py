@@ -18,6 +18,16 @@ from __future__ import annotations
 from typing import Any
 from python_ta.contracts import check_contracts
 
+def make_trees(prefix: list) -> list[SimplePrefixTree]:
+    """
+    Returns a list of all the trees that can be made from the prefix
+    """
+    lst = []
+    for letter in range(len(prefix)):
+        tree = SimplePrefixTree()
+        tree.root = prefix[:letter]
+        lst.append(tree)
+    return lst
 
 ################################################################################
 # The Autocompleter ADT
@@ -165,14 +175,28 @@ class SimplePrefixTree(Autocompleter):
             1) not in this Autocompleter, or
             2) was previously inserted with the SAME prefix sequence
         """
-        # value = regular word
-        # prefix = letters in the word
-        # weight = if its a leaf make it the root
+        truth = False
+        trees = make_trees(prefix)
+        if self.is_leaf():
+            self.weight += weight
+            return
+        for subtree in trees:
+            for tree in self.subtrees:
+                if subtree == tree:
+                    truth = True
+                    tree.insert(value, weight, prefix)
+        if not truth:
+            val_tree = SimplePrefixTree(); val_tree.root = value; val_tree.weight = weight
+            trees[-1].subtrees.append(val_tree)
+            root_index = 0
+            for subtree in trees:
+                if subtree == self.root:
+                    root_index = trees.index(subtree)
+            for x in range(len(trees[root_index:]) - 1):
+                trees[x].subtrees.append(trees[x + 1])
+            self.subtrees.append(trees[0])
 
-        iteration = 0
-        tree = SimplePrefixTree()
-
-
+        self.weight += weight
 
     ###########################################################################
     # Extra helper methods

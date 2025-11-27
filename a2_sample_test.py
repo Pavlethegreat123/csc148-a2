@@ -30,6 +30,7 @@ def test_simple_prefix_tree_structure() -> None:
     t.insert('cat', 2.0, ['c', 'a', 't'])
     t.insert('car', 3.0, ['c', 'a', 'r'])
     t.insert('dog', 4.0, ['d', 'o', 'g'])
+    print(t)
 
     # t has 3 values (note that __len__ only counts the inserted values,
     # which are stored at the *leaves* of the tree).
