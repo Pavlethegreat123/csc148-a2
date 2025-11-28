@@ -18,6 +18,22 @@ from __future__ import annotations
 from typing import Any
 from python_ta.contracts import check_contracts
 
+def find_prefix_tree(prefix: str, tree: SimplePrefixTree) -> SimplePrefixTree | None:
+    ret_tree = None
+    if not tree.root:
+        for subtree in tree.subtrees:
+            ret_tree = find_prefix_tree(prefix, subtree)
+            if ret_tree is not None:
+                return ret_tree
+    if tree.is_leaf() or tree.is_empty():
+        return None
+    if tree.root[0] == prefix:
+        return tree
+    else:
+        for subtree in tree.subtrees:
+            ret_tree = find_prefix_tree(prefix, subtree)
+    return ret_tree
+
 def make_trees(prefix: list, weight: float) -> list[SimplePrefixTree]:
     """
     Returns a list of all the trees that can be made from the prefix
@@ -29,6 +45,26 @@ def make_trees(prefix: list, weight: float) -> list[SimplePrefixTree]:
         tree.root = [" ".join(prefix[:letter])]; tree.weight = weight
         lst.append(tree)
     return lst
+
+def dissolve_nested_tup_lst(obj: list|tuple):
+    """
+    >>> dissolve_nested_tup_lst([(1,5), [[(21,1)]], (3,1),[(4,2)]])
+    [(1, 5), (21, 1), (3, 1), (4, 2)]
+    """
+    result = []
+    for item in obj:
+        if isinstance(item, tuple):
+            result.append(item)
+        elif isinstance(item, list):
+            result.extend(dissolve_nested_tup_lst(item))
+
+    return result
+
+def decreasing_sort(tree: SimplePrefixTree) -> None:
+    tree.subtrees.sort(key=lambda obj: obj.weight, reverse=True)
+    for subtree in tree.subtrees:
+        decreasing_sort(subtree)
+
 
 ################################################################################
 # The Autocompleter ADT
@@ -160,6 +196,34 @@ class SimplePrefixTree(Autocompleter):
                 num += len(subtree)
         return num
 
+    ###########################################################################
+    # Extra helper methods
+    ###########################################################################
+    def __str__(self) -> str:
+        """Return a string representation of this prefix tree.
+
+        You may find this method helpful for debugging. You should not change this method
+        (nor the helper _str_indented).
+        """
+        return self._str_indented()
+
+    def _str_indented(self, depth: int = 0) -> str:
+        """Return an indented string representation of this prefix tree.
+
+        The indentation level is specified by the <depth> parameter.
+        """
+        if self.is_empty():
+            return ''
+        else:
+            s = '  ' * depth + f'{self.root} ({self.weight})\n'
+            for subtree in self.subtrees:
+                s += subtree._str_indented(depth + 1)
+            return s
+
+    ###########################################################################
+    # Add code for Parts 1(c), 2, and 3 here
+    ###########################################################################
+
     def insert(self, value: Any, weight: float, prefix: list) -> None:
         """Insert the given value into this Tree.
 
@@ -199,35 +263,8 @@ class SimplePrefixTree(Autocompleter):
                 trees[x].subtrees.append(trees[x + 1])
             self.subtrees.append(trees[root_index])
 
+        decreasing_sort(self)
         self.weight += weight
-
-    ###########################################################################
-    # Extra helper methods
-    ###########################################################################
-    def __str__(self) -> str:
-        """Return a string representation of this prefix tree.
-
-        You may find this method helpful for debugging. You should not change this method
-        (nor the helper _str_indented).
-        """
-        return self._str_indented()
-
-    def _str_indented(self, depth: int = 0) -> str:
-        """Return an indented string representation of this prefix tree.
-
-        The indentation level is specified by the <depth> parameter.
-        """
-        if self.is_empty():
-            return ''
-        else:
-            s = '  ' * depth + f'{self.root} ({self.weight})\n'
-            for subtree in self.subtrees:
-                s += subtree._str_indented(depth + 1)
-            return s
-
-    ###########################################################################
-    # Add code for Parts 1(c), 2, and 3 here
-    ###########################################################################
 
     def autocomplete(self, prefix: list,
                      limit: int | None = None) -> list[tuple[Any, float]]:
@@ -240,9 +277,48 @@ class SimplePrefixTree(Autocompleter):
 
         Preconditions:
         - limit is None or limit > 0
+        >>> t = SimplePrefixTree()
+        >>> t.insert('cat', 2.0, ['c', 'a', 't'])
+        >>> t.insert('car', 3.0, ['c', 'a', 'r'])
+        >>> t.insert('dog', 4.0, ['d', 'o', 'g'])
+        >>> t.autocomplete(['d'], 1)
+        [('dog', 4.0)]
         """
 
-
+        accumulator = 0
+        trees = []
+        if self.is_leaf():
+            return [(self.root[0], self.weight)]
+        if self.is_empty():
+            return []
+        else:
+            tree = find_prefix_tree(prefix[0], self)
+            if limit is not None:
+                if tree is not None:
+                    for subtree in tree.subtrees:
+                        if accumulator < limit:
+                            trees.append(subtree.autocomplete(prefix, limit))
+                            accumulator += 1
+                        else:
+                            trees = dissolve_nested_tup_lst(trees); trees.sort(key=lambda t: t[1], reverse=True)
+                            return trees
+                else:
+                    for subtree in self.subtrees:
+                        if accumulator < limit:
+                            trees.append(subtree.autocomplete(prefix, limit))
+                            accumulator += 1
+                        else:
+                            trees = dissolve_nested_tup_lst(trees); trees.sort(key=lambda t: t[1], reverse=True)
+                            return trees
+            else:
+                if tree is not None:
+                    for subtree in tree.subtrees:
+                        trees.append(subtree.autocomplete(prefix, limit))
+                else:
+                    for subtree in self.subtrees:
+                        trees.append(subtree.autocomplete(prefix, limit))
+        trees = dissolve_nested_tup_lst(trees); trees.sort(key=lambda t: t[1], reverse=True)
+        return trees
 
 ################################################################################
 # CompressedPrefixTree (Part 6)

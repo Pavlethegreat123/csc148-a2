@@ -62,6 +62,7 @@ def test_simple_prefix_tree_autocomplete() -> None:
     t.insert('cat', 2.0, ['c', 'a', 't'])
     t.insert('car', 3.0, ['c', 'a', 'r'])
     t.insert('dog', 4.0, ['d', 'o', 'g'])
+    print(t)
 
     # Note that the returned tuples *must* be sorted in non-increasing weight
     # order. You can (and should) sort the tuples yourself inside
@@ -73,6 +74,7 @@ def test_simple_prefix_tree_autocomplete() -> None:
     # is recursed on first.
     assert t.autocomplete([], 1) == [('car', 3.0)]
 
+    assert t.autocomplete(['d'], 1) == [('dog', 4.0)]
 
 def test_simple_prefix_tree_remove() -> None:
     """This is a test for the correct remove behaviour for a small
@@ -97,6 +99,8 @@ def test_simple_prefix_tree_remove() -> None:
     # There is no more ['c'] subtree!
     assert len(t.subtrees) == 1
     assert t.subtrees[0].root == ['d']
+
+# chatGPT tests
 
 def _count_nodes(tree: SimplePrefixTree) -> int:
     """Return the number of non-empty nodes in the prefix tree.
