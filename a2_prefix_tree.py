@@ -18,14 +18,15 @@ from __future__ import annotations
 from typing import Any
 from python_ta.contracts import check_contracts
 
-def make_trees(prefix: list) -> list[SimplePrefixTree]:
+def make_trees(prefix: list, weight: float) -> list[SimplePrefixTree]:
     """
     Returns a list of all the trees that can be made from the prefix
+    >>> var = make_trees(['a', 'b', 'c'])
     """
     lst = []
-    for letter in range(len(prefix)):
+    for letter in range(1, len(prefix) + 1):
         tree = SimplePrefixTree()
-        tree.root = prefix[:letter]
+        tree.root = [" ".join(prefix[:letter])]; tree.weight = weight
         lst.append(tree)
     return lst
 
@@ -176,25 +177,27 @@ class SimplePrefixTree(Autocompleter):
             2) was previously inserted with the SAME prefix sequence
         """
         truth = False
-        trees = make_trees(prefix)
+        trees = make_trees(prefix, weight)
         if self.is_leaf():
             self.weight += weight
             return
         for subtree in trees:
             for tree in self.subtrees:
-                if subtree == tree:
+                if subtree.root == tree.root:
                     truth = True
                     tree.insert(value, weight, prefix)
+                    break
         if not truth:
-            val_tree = SimplePrefixTree(); val_tree.root = value; val_tree.weight = weight
+            val_tree = SimplePrefixTree(); val_tree.root = [value]; val_tree.weight = weight
             trees[-1].subtrees.append(val_tree)
             root_index = 0
             for subtree in trees:
-                if subtree == self.root:
-                    root_index = trees.index(subtree)
-            for x in range(len(trees[root_index:]) - 1):
+                if subtree.root == self.root:
+                    root_index = trees.index(subtree) + 1
+                    break
+            for x in range(root_index, len(trees) - 1):
                 trees[x].subtrees.append(trees[x + 1])
-            self.subtrees.append(trees[0])
+            self.subtrees.append(trees[root_index])
 
         self.weight += weight
 
@@ -225,6 +228,20 @@ class SimplePrefixTree(Autocompleter):
     ###########################################################################
     # Add code for Parts 1(c), 2, and 3 here
     ###########################################################################
+
+    def autocomplete(self, prefix: list,
+                     limit: int | None = None) -> list[tuple[Any, float]]:
+        """Return up to <limit> matches for the given prefix.
+
+        The return value is a list of tuples (value, weight), and must be
+        sorted by non-increasing weight. You can decide how to break ties.
+
+        If limit is None, return *every* match for the given prefix.
+
+        Preconditions:
+        - limit is None or limit > 0
+        """
+
 
 
 ################################################################################

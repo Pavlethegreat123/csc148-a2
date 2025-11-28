@@ -98,6 +98,217 @@ def test_simple_prefix_tree_remove() -> None:
     assert len(t.subtrees) == 1
     assert t.subtrees[0].root == ['d']
 
+def _count_nodes(tree: SimplePrefixTree) -> int:
+    """Return the number of non-empty nodes in the prefix tree.
+
+    A "node" is a SimplePrefixTree object with weight > 0
+    (i.e., not the initial empty tree before any insertions).
+    """
+    if tree.is_empty():
+        return 0
+    return 1 + sum(_count_nodes(sub) for sub in tree.subtrees)
+
+
+def test_insert_empty_prefix_single_value_structure_and_len() -> None:
+    """Inserting one value with an empty prefix [] into a new tree.
+
+    Expected:
+      - Tree has two nodes: internal root with prefix [], and a leaf node.
+      - __len__ returns 1.
+    """
+    tree = SimplePrefixTree()
+    tree.insert("cat", 1.0, [])
+
+    # len counts only leaves
+    assert len(tree) == 1
+
+    # Root should be an internal node with prefix []
+    assert tree.root == []
+    assert not tree.is_leaf()
+    assert not tree.is_empty()
+
+    # Exactly one subtree, which should be the leaf
+    assert len(tree.subtrees) == 1
+    leaf = tree.subtrees[0]
+
+    assert leaf.is_leaf()
+    # Leaf root should be the stored value
+    assert leaf.root == "cat"
+    assert leaf.weight == pytest.approx(1.0)
+
+    # Weight should be propagated to the root
+    assert tree.weight == pytest.approx(1.0)
+
+    # Two non-empty nodes: internal root and the leaf
+    assert _count_nodes(tree) == 2
+
+
+def test_insert_length_one_prefix_structure_and_len() -> None:
+    """Inserting one value with a length-one prefix [x] into a new tree.
+
+    Example: value 'cat' with prefix ['c'].
+
+    Expected:
+      - Tree has three nodes: internal [] -> internal ['c'] -> leaf 'cat'.
+      - __len__ returns 1.
+    """
+    tree = SimplePrefixTree()
+    tree.insert("cat", 2.5, ["c"])
+
+    assert len(tree) == 1
+
+    # Root internal node
+    assert tree.root == []
+    assert not tree.is_leaf()
+    assert not tree.is_empty()
+    assert len(tree.subtrees) == 1
+
+    # Internal node for prefix ['c']
+    prefix_node = tree.subtrees[0]
+    assert not prefix_node.is_leaf()
+    assert prefix_node.root == ["c"]
+    assert len(prefix_node.subtrees) == 1
+
+    # Leaf containing the value
+    leaf = prefix_node.subtrees[0]
+    assert leaf.is_leaf()
+    assert leaf.root == "cat"
+    assert leaf.weight == pytest.approx(2.5)
+
+    # Weight propagation
+    assert prefix_node.weight == pytest.approx(2.5)
+    assert tree.weight == pytest.approx(2.5)
+
+    # Three nodes: [], ['c'], and leaf 'cat'
+    assert _count_nodes(tree) == 3
+
+
+def test_insert_length_n_prefix_structure_and_len() -> None:
+    """Inserting one value with a length-n prefix [x1, ..., xn].
+
+    Example: prefix ['c', 'a', 't'] and value 'cat'.
+
+    Expected:
+      - Tree has (n + 2) nodes:
+          internal [] ->
+          internal ['c'] ->
+          internal ['c', 'a'] ->
+          internal ['c', 'a', 't'] ->
+          leaf 'cat'
+      - __len__ returns 1.
+      - All internal nodes (and the leaf) have the correct weight.
+    """
+    tree = SimplePrefixTree()
+    prefix = ["c", "a", "t"]
+    value = "cat"
+    w = 4.0
+
+    tree.insert(value, w, prefix)
+
+    # Only one value total
+    assert len(tree) == 1
+
+    # Root
+    assert tree.root == []
+    assert not tree.is_empty()
+    assert not tree.is_leaf()
+
+    # Node count check: n internal prefix nodes + root + leaf = n + 2
+    assert _count_nodes(tree) == len(prefix) + 2
+
+    # Walk down the chain of internal prefix nodes
+    current = tree
+    built_prefix: list[Any] = []
+    for char in prefix:
+        # exactly one subtree at each step, forming a chain
+        assert len(current.subtrees) == 1
+        current = current.subtrees[0]
+        built_prefix.append(char)
+
+        # Each of these should be non-leaf internal nodes with the accumulated prefix
+        assert current.root == built_prefix
+        assert not current.is_leaf()
+        assert current.weight == pytest.approx(w)
+
+    # After the loop, current is the last internal node with full prefix
+    assert len(current.subtrees) == 1
+    leaf = current.subtrees[0]
+    assert leaf.is_leaf()
+    assert leaf.root == value
+    assert leaf.weight == pytest.approx(w)
+
+    # Root weight also equals the leaf weight
+    assert tree.weight == pytest.approx(w)
+
+
+def test_weights_update_with_multiple_insertions_same_prefix() -> None:
+    """Check that weights are updated correctly with multiple values.
+
+    Insert two different values that share the same prefix ['c']:
+
+      - 'cat' with weight 2.0
+      - 'car' with weight 1.0
+
+    Expected:
+      - __len__ == 2 (two leaves).
+      - Total weight at root and prefix node == 3.0.
+      - Leaf weights remain 2.0 and 1.0.
+    """
+    tree = SimplePrefixTree()
+    tree.insert("cat", 2.0, ["c"])
+    tree.insert("car", 1.0, ["c"])
+
+    assert len(tree) == 2
+    assert tree.weight == pytest.approx(3.0)
+
+    # There should be a single internal node for prefix ['c']
+    assert len(tree.subtrees) == 1
+    prefix_node = tree.subtrees[0]
+    assert prefix_node.root == ["c"]
+    assert prefix_node.weight == pytest.approx(3.0)
+
+    # Two leaves under ['c']
+    assert len(prefix_node.subtrees) == 2
+    leaves = prefix_node.subtrees
+
+    # Collect weights and roots for easier checking
+    weights = sorted([leaf.weight for leaf in leaves], reverse=True)
+    roots = {leaf.root for leaf in leaves}
+
+    assert weights == [2.0, 1.0]
+    assert roots == {"cat", "car"}
+
+
+def test_weights_update_when_reinserting_same_value() -> None:
+    """Reinserting the same value with the same prefix adds to its weight.
+
+    Insert:
+      - 'cat', weight 2.0, prefix ['c']
+      - 'cat', weight 3.0, prefix ['c']
+
+    Expected:
+      - Only one leaf.
+      - Leaf weight == 5.0.
+      - Total tree and prefix-node weight == 5.0.
+      - __len__ == 1.
+    """
+    tree = SimplePrefixTree()
+    tree.insert("cat", 2.0, ["c"])
+    tree.insert("cat", 3.0, ["c"])
+
+    assert len(tree) == 1
+    assert tree.weight == pytest.approx(5.0)
+
+    assert len(tree.subtrees) == 1
+    prefix_node = tree.subtrees[0]
+    assert prefix_node.weight == pytest.approx(5.0)
+
+    assert len(prefix_node.subtrees) == 1
+    leaf = prefix_node.subtrees[0]
+    assert leaf.is_leaf()
+    assert leaf.root == "cat"
+    assert leaf.weight == pytest.approx(5.0)
+
 
 ###########################################################################
 # Part 4 sample test (add your own for Parts 4 and 5!)
