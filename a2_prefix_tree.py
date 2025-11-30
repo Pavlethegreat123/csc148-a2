@@ -220,6 +220,43 @@ class SimplePrefixTree(Autocompleter):
                 s += subtree._str_indented(depth + 1)
             return s
 
+    def _get_search_root(self, prefix: list) -> SimplePrefixTree:
+        """Return the subtree from which to start autocomplete.
+
+        If a matching prefix subtree exists (based on the first element of
+        <prefix>), return that subtree; otherwise, return self.
+        """
+        if not prefix:
+            return self
+        tree = find_prefix_tree(prefix[0], self)
+        if tree is not None:
+            return tree
+        return self
+
+    def _autocomplete_no_limit(self, search_root: SimplePrefixTree,
+                               prefix: list) -> list[list[tuple[Any, float]]]:
+        """Helper for autocomplete when limit is None."""
+        results = []
+        for subtree in search_root.subtrees:
+            results.append(subtree.autocomplete(prefix, None))
+        return results
+
+    def _autocomplete_with_limit(self, search_root: SimplePrefixTree,
+                                 prefix: list, limit: int) -> list[list[tuple[Any, float]]]:
+        """Helper for autocomplete when a limit is specified.
+
+        This preserves the original behaviour of limiting by the number of
+        *subtrees explored* at this level, not by total number of matches.
+        """
+        results = []
+        count = 0
+        for subtree in search_root.subtrees:
+            if count >= limit:
+                break
+            results.append(subtree.autocomplete(prefix, limit))
+            count += 1
+        return results
+
     ###########################################################################
     # Add code for Parts 1(c), 2, and 3 here
     ###########################################################################
@@ -284,41 +321,32 @@ class SimplePrefixTree(Autocompleter):
         >>> t.autocomplete(['d'], 1)
         [('dog', 4.0)]
         """
-
-        accumulator = 0
-        trees = []
+        # Base cases: leaf or empty tree
         if self.is_leaf():
             return [(self.root[0], self.weight)]
         if self.is_empty():
             return []
+
+        # Decide which subtree to start searching from
+        search_root = self._get_search_root(prefix)
+
+        # Collect raw results, possibly with a limit
+        if limit is None:
+            raw_results = self._autocomplete_no_limit(search_root, prefix)
         else:
-            tree = find_prefix_tree(prefix[0], self)
-            if limit is not None:
-                if tree is not None:
-                    for subtree in tree.subtrees:
-                        if accumulator < limit:
-                            trees.append(subtree.autocomplete(prefix, limit))
-                            accumulator += 1
-                        else:
-                            trees = dissolve_nested_tup_lst(trees); trees.sort(key=lambda t: t[1], reverse=True)
-                            return trees
-                else:
-                    for subtree in self.subtrees:
-                        if accumulator < limit:
-                            trees.append(subtree.autocomplete(prefix, limit))
-                            accumulator += 1
-                        else:
-                            trees = dissolve_nested_tup_lst(trees); trees.sort(key=lambda t: t[1], reverse=True)
-                            return trees
-            else:
-                if tree is not None:
-                    for subtree in tree.subtrees:
-                        trees.append(subtree.autocomplete(prefix, limit))
-                else:
-                    for subtree in self.subtrees:
-                        trees.append(subtree.autocomplete(prefix, limit))
-        trees = dissolve_nested_tup_lst(trees); trees.sort(key=lambda t: t[1], reverse=True)
-        return trees
+            raw_results = self._autocomplete_with_limit(search_root, prefix, limit)
+
+        # Flatten nested lists of (value, weight) and sort by weight
+        results = dissolve_nested_tup_lst(raw_results)
+        results.sort(key=lambda t: t[1], reverse=True)
+        return results
+
+    def remove(self, prefix: list) -> None:
+        """Remove all values that match the given prefix.
+        """
+
+
+
 
 ################################################################################
 # CompressedPrefixTree (Part 6)

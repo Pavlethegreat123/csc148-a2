@@ -100,7 +100,7 @@ def test_simple_prefix_tree_remove() -> None:
     assert len(t.subtrees) == 1
     assert t.subtrees[0].root == ['d']
 
-# chatGPT tests
+# chatGPT tests for insert
 
 def _count_nodes(tree: SimplePrefixTree) -> int:
     """Return the number of non-empty nodes in the prefix tree.
@@ -312,6 +312,157 @@ def test_weights_update_when_reinserting_same_value() -> None:
     assert leaf.is_leaf()
     assert leaf.root == "cat"
     assert leaf.weight == pytest.approx(5.0)
+
+# chatgpt tests for autocomplete
+
+def _build_basic_tree() -> SimplePrefixTree:
+    """Return a small SimplePrefixTree for autocomplete testing."""
+    t = SimplePrefixTree()
+    t.insert('cat', 2.0, ['c', 'a', 't'])
+    t.insert('car', 3.0, ['c', 'a', 'r'])
+    t.insert('cap', 1.0, ['c', 'a', 'p'])
+    t.insert('dog', 4.0, ['d', 'o', 'g'])
+    t.insert('door', 5.0, ['d', 'o', 'o', 'r'])
+    t.insert('doll', 1.5, ['d', 'o', 'l', 'l'])
+    return t
+
+
+###############################################################################
+# 1. Number of matches for a prefix: 0, 1, many
+###############################################################################
+
+def test_autocomplete_no_matches_returns_empty_list() -> None:
+    """Autocomplete on a prefix with 0 matches returns an empty list."""
+    t = _build_basic_tree()
+    result = t.autocomplete(['z'])
+
+    assert result == []
+
+
+def test_autocomplete_single_match_returns_that_match() -> None:
+    """Autocomplete on a prefix that uniquely identifies one value.
+
+    Here, only 'cat' should match the full prefix ['c', 'a', 't'].
+    """
+    t = _build_basic_tree()
+    result = t.autocomplete(['c', 'a', 't'])
+
+    assert len(result) == 1
+    assert result[0][0] == 'cat'
+    assert result[0][1] == pytest.approx(2.0)
+
+
+def test_autocomplete_many_matches_no_limit_sorted_by_weight() -> None:
+    """Autocomplete on a prefix with many matches and no limit.
+
+    For prefix ['c'], we have 'car' (3.0), 'cat' (2.0), and 'cap' (1.0).
+    They should be sorted by non-increasing weight.
+    """
+    t = _build_basic_tree()
+    result = t.autocomplete(['c'])
+
+    words = [pair[0] for pair in result]
+    weights = [pair[1] for pair in result]
+
+    assert set(words) == {'car', 'cat', 'cap'}
+    assert weights == sorted(weights, reverse=True)
+
+
+###############################################################################
+# 2. Relationship between number of matches and the limit argument
+###############################################################################
+
+def test_autocomplete_limit_greater_than_number_of_matches() -> None:
+    """If limit > number of matches, all matches are returned.
+
+    For prefix ['c'], there are 3 matches, so limit=10 still returns 3.
+    """
+    t = _build_basic_tree()
+    result = t.autocomplete(['c'], limit=10)
+
+    assert len(result) == 3
+    assert set(word for word, _ in result) == {'car', 'cat', 'cap'}
+
+
+def test_autocomplete_limit_equal_to_number_of_matches() -> None:
+    """If limit == number of matches, all matches are returned."""
+    t = _build_basic_tree()
+    # There are 3 matches for ['c'], so limit=3 should still return all 3.
+    result = t.autocomplete(['c'], limit=3)
+
+    assert len(result) == 3
+    assert set(word for word, _ in result) == {'car', 'cat', 'cap'}
+
+
+def test_autocomplete_limit_less_than_number_of_matches() -> None:
+    """If limit < number of matches, *at most* limit results are returned.
+
+    For prefix ['c'], there are 3 matches, so limit=2 returns 2 results.
+    They must be the top 2 by weight: 'car' (3.0) and 'cat' (2.0).
+    """
+    t = _build_basic_tree()
+    result = t.autocomplete(['c'], limit=2)
+
+    assert len(result) == 2
+    top_words = [word for word, _ in result]
+    assert 'car' in top_words
+    assert 'cat' in top_words
+    # Ensure 'cap' (lowest weight) is not included
+    assert 'cap' not in top_words
+
+
+###############################################################################
+# 3. When there are more matches than limit, check correct matches by weight
+###############################################################################
+
+def test_autocomplete_more_matches_than_limit_chooses_highest_weights() -> None:
+    """When there are more matches than limit, return the highest-weight ones.
+
+    We construct a tree where four words share the same prefix, with distinct
+    weights, and use a small limit to make sure we get the correct top-k.
+    """
+    t = SimplePrefixTree()
+    t.insert('alpha', 1.0, ['a'])
+    t.insert('beta', 10.0, ['b'])
+    t.insert('ape', 3.0, ['a'])
+    t.insert('ant', 5.0, ['a'])
+    t.insert('arch', 7.0, ['a'])
+
+    # There are 4 matches for prefix ['a']: alpha, ape, ant, arch.
+    # Their weights: 1.0, 3.0, 5.0, 7.0.
+    # With limit=2, we expect the two highest-weight: 'arch' (7.0), 'ant' (5.0).
+    result = t.autocomplete(['a'], limit=2)
+
+    assert len(result) == 2
+    words = {word for word, _ in result}
+    assert words == {'arch', 'ant'}
+
+
+def test_autocomplete_weight_updates_affect_ranking() -> None:
+    """If a value is inserted multiple times, its cumulative weight is used.
+
+    We make one of the lower-weight entries become the highest-weight by
+    re-inserting it, and check that autocomplete reflects this.
+    """
+    t = SimplePrefixTree()
+    t.insert('alpha', 1.0, ['a'])
+    t.insert('ape', 3.0, ['a'])
+    t.insert('ant', 5.0, ['a'])
+
+    # Re-insert 'ape' with extra weight so its total becomes highest:
+    # old 3.0 + new 5.0 = 8.0
+    t.insert('ape', 5.0, ['a'])
+
+    # Now weights: alpha=1.0, ant=5.0, ape=8.0.
+    result = t.autocomplete(['a'], limit=2)
+
+    assert len(result) == 2
+    # First result should be 'ape' with highest weight
+    assert result[0][0] == 'ape'
+    assert result[0][1] == pytest.approx(8.0)
+    # Second should be 'ant'
+    assert result[1][0] == 'ant'
+    assert result[1][1] == pytest.approx(5.0)
 
 
 ###########################################################################
