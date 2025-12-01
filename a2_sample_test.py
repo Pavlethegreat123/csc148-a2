@@ -14,7 +14,7 @@ Note: this file is for support purposes only, and is not part of your
 assignment submission.
 """
 from a2_prefix_tree import SimplePrefixTree, CompressedPrefixTree
-from a2_autocomplete_engines import SentenceAutocompleteEngine
+from a2_autocomplete_engines import SentenceAutocompleteEngine, LetterAutocompleteEngine
 
 
 ###########################################################################
@@ -87,11 +87,13 @@ def test_simple_prefix_tree_remove() -> None:
     t.insert('cat', 2.0, ['c', 'a', 't'])
     t.insert('car', 3.0, ['c', 'a', 'r'])
     t.insert('dog', 4.0, ['d', 'o', 'g'])
+    print(t)
 
     # The trickiest part is that only *values* should be stored at leaves,
     # so even if you remove a specific prefix, its parent might get removed
     # from the tree as well!
     t.remove(['c', 'a'])
+    print(t)
 
     assert len(t) == 1
     assert t.weight == 4.0
@@ -468,6 +470,17 @@ def test_autocomplete_weight_updates_affect_ranking() -> None:
 ###########################################################################
 # Part 4 sample test (add your own for Parts 4 and 5!)
 ###########################################################################
+def test_letter_autocompleter() -> None:
+    engine = LetterAutocompleteEngine({
+        'file': 'data/texts/sample_words.txt',
+        'autocompleter': 'simple'
+    })
+
+    results = engine.autocomplete(['d', 'o'], 1)
+    assert len(results) == 1
+    assert results[0][0] == 'door'
+    assert results[0][1] == 2.0
+
 def test_sentence_autocompleter() -> None:
     """Basic test for SentenceAutocompleteEngine.
 

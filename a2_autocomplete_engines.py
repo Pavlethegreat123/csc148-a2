@@ -22,6 +22,48 @@ from python_ta.contracts import check_contracts
 from a2_melody import Melody
 from a2_prefix_tree import Autocompleter, SimplePrefixTree, CompressedPrefixTree
 
+def make_prefixes_letter(line: str) -> list[str]:
+    """
+    Returns a list of prefixes for a given word
+    >>> var = make_prefixes_letter("cat")
+    >>> print(var)
+    ['c', 'a', 't']
+    """
+    prefixes = []
+    [prefixes.append(letter) for letter in line]
+    return prefixes
+
+def make_prefixes_word(line: str) -> list[str]:
+    """
+        Returns a list of prefixes for a given word
+        >>> var = make_prefixes_word('hello world')
+        >>> print(var)
+        ['hello', 'world']
+        """
+    prefixes = line.split(' ')
+
+    return prefixes
+
+
+def sanitize(line:str) -> str:
+    """
+    >>> print(sanitize("cAt"))
+    >>> print(sanitize("cA t"))
+    >>> print(sanitize("cAt  "))
+    >>> print(sanitize("cA-t"))
+    >>> print(sanitize("c8At"))
+    >>> print(sanitize('n \\n muchluv'))
+    >>> print(sanitize(' '))
+    >>> print(sanitize(''))
+    """
+
+    line = line.lower()
+    line = line.strip()
+    cleaned = []
+    for ch in line:
+        if ch.isalnum() or ch == ' ':
+            cleaned.append(ch)
+    return ''.join(cleaned)
 
 ################################################################################
 # Text-based Autocomplete Engines (Task 4)
@@ -67,16 +109,20 @@ class LetterAutocompleteEngine:
         - config['file'] is a valid path to a file as described above
         - config['autocompleter'] in ['simple', 'compressed']
         """
-        ...
+        if config['autocompleter'] == 'simple':
+            self.autocompleter = SimplePrefixTree()
+        else:
+            self.autocompleter = CompressedPrefixTree()
 
-        # We've opened the file for you here. You should iterate over the
-        # lines of the file and process them according to the description in
-        # this method's docstring.
         with open(config['file'], encoding='utf8') as f:
             for line in f:
-                ...
+                line = sanitize(line)
+                if not line.isspace():
+                    prefixes = make_prefixes_letter(line)
+                    self.autocompleter.insert(line, 1.0, prefixes)
 
-    def autocomplete(self, prefix: str, limit: int | None = None) -> list[tuple[str, float]]:
+
+    def autocomplete(self, prefix: str | list, limit: int | None = None) -> list[tuple[str, float]]:
         """Return up to <limit> matches for the given prefix string.
 
         The return value is a list of tuples (string, weight), and must be
@@ -91,6 +137,10 @@ class LetterAutocompleteEngine:
         - limit is None or limit > 0
         - <prefix> is a sanitized string
         """
+        if isinstance(prefix, str):
+            return self.autocompleter.autocomplete([prefix], limit)
+        else:
+            return self.autocompleter.autocomplete(prefix, limit)
 
     def remove(self, prefix: str) -> None:
         """Remove all strings that match the given prefix string.
@@ -101,6 +151,7 @@ class LetterAutocompleteEngine:
         Preconditions:
         - <prefix> is a sanitized string
         """
+        self.autocompleter.remove([prefix])
 
 
 @check_contracts
@@ -147,6 +198,17 @@ class SentenceAutocompleteEngine:
         """
         # We haven't given you any starter code here! You should review how
         # you processed CSV files on Assignment 1.
+        if config['autocompleter'] == 'simple':
+            self.autocompleter = SimplePrefixTree()
+        else:
+            self.autocompleter = CompressedPrefixTree()
+
+        with open(config['file']) as csvfile:
+            reader = csv.reader(csvfile)
+            for line in reader:
+                value = sanitize(line[0])
+                prefixes = make_prefixes_word(value)
+                self.autocompleter.insert(value, float(line[1]), prefixes)
 
     def autocomplete(self, prefix: str, limit: int | None = None) -> list[tuple[str, float]]:
         """Return up to <limit> matches for the given prefix string.
@@ -163,6 +225,8 @@ class SentenceAutocompleteEngine:
         - limit is None or limit > 0
         - <prefix> is a sanitized string
         """
+        return self.autocompleter.autocomplete([prefix], limit)
+
 
     def remove(self, prefix: str) -> None:
         """Remove all strings that match the given prefix.
@@ -173,6 +237,7 @@ class SentenceAutocompleteEngine:
         Preconditions:
         - <prefix> is a sanitized string
         """
+        self.autocompleter.remove([prefix])
 
 
 ################################################################################
