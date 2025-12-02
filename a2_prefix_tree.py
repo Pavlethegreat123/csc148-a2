@@ -243,16 +243,30 @@ class SimplePrefixTree(Autocompleter):
                 s += subtree._str_indented(depth + 1)
             return s
 
-    def _remove_prefix(self, prefix_str: str) -> float:
-        """Helper for remove.
+    # def _tree_has_leaf(self) -> bool:
+    #     """Return whether this simple prefix tree has a leaf.
+    #     """
+    #     truth = False
+    #     if self.is_leaf():
+    #         return True
+    #     else:
+    #         for subtree in self.subtrees:
+    #             if subtree._tree_has_leaf():
+    #                 truth = True
+    #     return truth
+    #
+    # def _remove_empty_trees(self) -> None:
+    #     """Remove all empty trees from this simple prefix tree."""
+    #     lst = []
+    #     for subtree in self.subtrees:
+    #         if subtree._tree_has_leaf():
+    #             lst.append(subtree)
+    #
+    #     self.subtrees = lst
 
-        Remove all values under this tree that are rooted at the internal node
-        whose root[0] == prefix_str (if such a node exists), and return the
-        total leaf weight removed from this subtree.
 
-        This method does NOT adjust this node's own weight; that is handled
-        by the caller using the returned value.
-        """
+    def _remove_helper(self, prefix):
+        # Base cases: empty tree or leaf can't contain an internal prefix node.
         if self.is_empty() or self.is_leaf():
             return 0.0
 
@@ -260,25 +274,28 @@ class SimplePrefixTree(Autocompleter):
         new_subtrees = []
 
         for subtree in self.subtrees:
-            # Case 1: this subtree is exactly the prefix node; remove it entirely.
-            if (not subtree.is_leaf()
-                    and subtree.root
-                    and subtree.root[0] == prefix_str):
+            # Case 1: this subtree is exactly the internal node representing <prefix>.
+            # Remove the entire subtree and add its weight to total_removed.
+            if (not subtree.is_leaf()) and subtree.root == prefix:
                 total_removed += subtree.weight
+                # We do NOT keep this subtree.
+
             else:
-                # Case 2: recurse into the subtree.
-                removed_from_child = subtree._remove_prefix(prefix_str)
+                # Case 2: recurse into the subtree to remove any matching descendants.
+                removed_from_child = subtree._remove_helper(prefix)
+
                 if removed_from_child > 0.0:
-                    subtree.weight -= removed_from_child
+                    # Child's own weight has ALREADY been adjusted in its helper.
                     total_removed += removed_from_child
 
-                # Keep subtree only if it is still non-empty.
+                # Only keep the child if it is still non-empty.
                 if not subtree.is_empty():
                     new_subtrees.append(subtree)
 
-        # Maintain invariant: subtrees sorted by non-increasing weight.
+        # Update this node's subtrees and weight.
         new_subtrees.sort(key=lambda st: st.weight, reverse=True)
         self.subtrees = new_subtrees
+        self.weight -= total_removed
 
         return total_removed
 
@@ -463,6 +480,27 @@ class SimplePrefixTree(Autocompleter):
         results = dissolve_nested_tup_lst(raw_results)
         results.sort(key=lambda t: t[1], reverse=True)
         return results
+
+    def remove(self, prefix: list) -> None:
+        """Remove all values that match the given prefix.
+        """
+        # Removing with empty prefix means "remove everything".
+        if prefix == []:
+            self.root = []
+            self.subtrees = []
+            self.weight = 0.0
+            return
+
+        if self.is_empty():
+            return
+
+            # This will recursively remove matching subtrees and adjust weights.
+        self._remove_helper(prefix)
+
+        # If everything was removed, reset to the empty-tree representation.
+        if self.weight == 0.0:
+            self.root = []
+            self.subtrees = []
 
 
 ################################################################################

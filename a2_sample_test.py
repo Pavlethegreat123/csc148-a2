@@ -472,9 +472,10 @@ def test_autocomplete_weight_updates_affect_ranking() -> None:
 ###########################################################################
 def test_letter_autocompleter() -> None:
     engine = LetterAutocompleteEngine({
-        'file': 'data/texts/sample_words.txt',
+        'file': 'data/texts/google_no_swears.txt',
         'autocompleter': 'simple'
     })
+    print(engine.autocompleter)
 
     results = engine.autocomplete(['d', 'o'], 1)
     assert len(results) == 1
@@ -483,9 +484,10 @@ def test_letter_autocompleter() -> None:
 
 def test_sentence_autocompleter() -> None:
     engine = SentenceAutocompleteEngine({
-        'file': 'data/texts/sample_sentences.csv',
+        'file': 'data/texts/google_searches.csv',
         'autocompleter': 'simple'
     })
+    print(engine.autocompleter)
 
     # Check simple autocompletion and sanitization
     results = engine.autocomplete('what a')
