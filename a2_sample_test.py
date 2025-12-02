@@ -14,7 +14,7 @@ Note: this file is for support purposes only, and is not part of your
 assignment submission.
 """
 from a2_prefix_tree import SimplePrefixTree, CompressedPrefixTree
-from a2_autocomplete_engines import SentenceAutocompleteEngine, LetterAutocompleteEngine
+from a2_autocomplete_engines import SentenceAutocompleteEngine, LetterAutocompleteEngine, MelodyAutocompleteEngine
 
 
 ###########################################################################
@@ -505,6 +505,14 @@ def test_sentence_autocompleter() -> None:
     assert len(results) == 1
     assert results[0][0] == 'a star is born'
     assert results[0][1] == 15.0 + 6.5
+
+def test_sentence_autocompleter() -> None:
+    engine = MelodyAutocompleteEngine({
+        'file': 'data/melodies/more_melodies.csv',
+        'autocompleter': 'simple'
+    })
+    print(engine.autocompleter)
+
 
 
 ###########################################################################

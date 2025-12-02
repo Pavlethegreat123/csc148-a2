@@ -211,7 +211,6 @@ class SentenceAutocompleteEngine:
 
         with open(config['file']) as csvfile:
             reader = csv.reader(csvfile)
-            reader = csv.reader(csvfile)
             for row in reader:
                 if not row:
                     continue
@@ -312,8 +311,16 @@ class MelodyAutocompleteEngine:
 
         Each melody is inserted into the Autocompleter with a weight of 1.0.
         """
-        # We haven't given you any starter code here! You should review how
-        # you processed CSV files on Assignment 1.
+        if config['autocompleter'] == 'simple':
+            self.autocompleter = SimplePrefixTree()
+        else:
+            self.autocompleter = CompressedPrefixTree()
+
+        with open(config['file']) as csvfile:
+            reader = csv.reader(csvfile)
+            for row in reader:
+                name = row[0]
+
 
     def autocomplete(
         self, prefix: list[int], limit: int | None = None
