@@ -482,19 +482,6 @@ def test_letter_autocompleter() -> None:
     assert results[0][1] == 2.0
 
 def test_sentence_autocompleter() -> None:
-    """Basic test for SentenceAutocompleteEngine.
-
-    This test relies on the sample_sentences.csv dataset. That file consists
-    of just a few lines, but there are three important details to notice:
-
-        1. You should use the second entry of each csv file as the weight of
-           the sentence. This entry can be a float! (Don't assume it's an int.)
-        2. The file contains two sentences that are sanitized to the same
-           string, and so this value is inserted twice. This means its weight
-           is the *sum* of the weights from each of the two lines in the file.
-        3. Numbers *are allowed* in the strings (this is true for both types
-           of text-based autocomplete engines). Don't remove them!
-    """
     engine = SentenceAutocompleteEngine({
         'file': 'data/texts/sample_sentences.csv',
         'autocompleter': 'simple'

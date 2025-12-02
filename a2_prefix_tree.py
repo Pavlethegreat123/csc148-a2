@@ -15,8 +15,20 @@ testing directly! You may, however, add new private attributes, methods, and
 top-level functions to this file.
 """
 from __future__ import annotations
+
+from idlelib.autocomplete import AutoComplete
 from typing import Any
 from python_ta.contracts import check_contracts
+
+def find_if_leaf_exist(value: Any, tree: Autocompleter) -> bool:
+    truth = False
+    for subtree in tree:
+        if subtree == value:
+            truth = True
+        else:
+            truth = find_prefix_tree(value, subtree)
+    return truth
+
 
 def find_prefix_tree(prefix: str, tree: SimplePrefixTree) -> SimplePrefixTree | None:
     ret_tree = None
@@ -34,20 +46,28 @@ def find_prefix_tree(prefix: str, tree: SimplePrefixTree) -> SimplePrefixTree | 
             ret_tree = find_prefix_tree(prefix, subtree)
     return ret_tree
 
+
 def make_trees(prefix: list, weight: float) -> list[SimplePrefixTree]:
     """
     Returns a list of all the trees that can be made from the prefix
     >>> var = make_trees(['a', 'b', 'c'], 1.0)
-    >>> [print(tree.root) for tree in var]
+
     """
     lst = []
     for letter in range(1, len(prefix) + 1):
         tree = SimplePrefixTree()
-        tree.root = [" ".join(prefix[:letter])]; tree.weight = weight
+        root = []
+        for letter in prefix[:letter]:
+            root.append(letter)
+        # tree.root = [" ".join(prefix[:letter])]
+        tree.root = root
+        tree.weight = weight
+
         lst.append(tree)
     return lst
 
-def dissolve_nested_tup_lst(obj: list|tuple):
+
+def dissolve_nested_tup_lst(obj: list | tuple):
     """
     >>> dissolve_nested_tup_lst([(1,5), [[(21,1)]], (3,1),[(4,2)]])
     [(1, 5), (21, 1), (3, 1), (4, 2)]
@@ -61,6 +81,7 @@ def dissolve_nested_tup_lst(obj: list|tuple):
 
     return result
 
+
 def decreasing_sort(tree: SimplePrefixTree) -> None:
     tree.subtrees.sort(key=lambda obj: obj.weight, reverse=True)
     for subtree in tree.subtrees:
@@ -73,6 +94,7 @@ def decreasing_sort(tree: SimplePrefixTree) -> None:
 class Autocompleter:
     """An abstract class representing the Autocompleter Abstract Data Type.
     """
+
     def __len__(self) -> int:
         """Return the number of values stored in this Autocompleter."""
         raise NotImplementedError
@@ -221,43 +243,6 @@ class SimplePrefixTree(Autocompleter):
                 s += subtree._str_indented(depth + 1)
             return s
 
-    def _get_search_root(self, prefix: list) -> SimplePrefixTree:
-        """Return the subtree from which to start autocomplete.
-
-        If a matching prefix subtree exists (based on the first element of
-        <prefix>), return that subtree; otherwise, return self.
-        """
-        if not prefix:
-            return self
-        tree = find_prefix_tree(prefix[0], self)
-        if tree is not None:
-            return tree
-        return self
-
-    def _autocomplete_no_limit(self, search_root: SimplePrefixTree,
-                               prefix: list) -> list[list[tuple[Any, float]]]:
-        """Helper for autocomplete when limit is None."""
-        results = []
-        for subtree in search_root.subtrees:
-            results.append(subtree.autocomplete(prefix, None))
-        return results
-
-    def _autocomplete_with_limit(self, search_root: SimplePrefixTree,
-                                 prefix: list, limit: int) -> list[list[tuple[Any, float]]]:
-        """Helper for autocomplete when a limit is specified.
-
-        This preserves the original behaviour of limiting by the number of
-        *subtrees explored* at this level, not by total number of matches.
-        """
-        results = []
-        count = 0
-        for subtree in search_root.subtrees:
-            if count >= limit:
-                break
-            results.append(subtree.autocomplete(prefix, limit))
-            count += 1
-        return results
-
     def _remove_prefix(self, prefix_str: str) -> float:
         """Helper for remove.
 
@@ -297,67 +282,42 @@ class SimplePrefixTree(Autocompleter):
 
         return total_removed
 
-    # Insert Helpers
-    def _insert_helper(self, value: Any, weight: float,
-                       prefix: list, depth: int) -> None:
-        """Recursive helper for insert.
+    def _get_search_root(self, prefix: list) -> SimplePrefixTree:
+        """Return the subtree from which to start autocomplete.
 
-        This node represents the prefix prefix[:depth].
-        We:
-        - add <weight> to this node's weight, and
-        - either create/update a leaf (if we've reached the full prefix),
-          or recurse into the appropriate internal child.
+        If a matching prefix subtree exists (based on the first element of
+        <prefix>), return that subtree; otherwise, return self.
         """
-        # Every node on the path stores the total weight of leaves below it.
-        self.weight += weight
+        if not prefix:
+            return self
+        tree = find_prefix_tree(prefix[0], self)
+        if tree is not None:
+            return tree
+        return self
 
-        # If we've consumed the whole prefix, this node is the "prefix node".
-        if depth == len(prefix):
-            self._insert_at_prefix_node(value, weight)
-            return
+    def _autocomplete_no_limit(self, search_root: SimplePrefixTree,
+                               prefix: list) -> list[list[tuple[Any, float]]]:
+        """Helper for autocomplete when limit is None."""
+        results = []
+        for subtree in search_root.subtrees:
+            results.append(subtree.autocomplete(prefix, None))
+        return results
 
-        # Otherwise, we need to go down to the child representing prefix[:depth + 1].
-        prefix_str = " ".join(prefix[:depth + 1])
-        child = self._find_internal_child(prefix_str)
-        if child is None:
-            child = SimplePrefixTree()
-            child.root = [prefix_str]
-            child.weight = 0.0
-            self.subtrees.append(child)
+    def _autocomplete_with_limit(self, search_root: SimplePrefixTree,
+                                 prefix: list, limit: int) -> list[list[tuple[Any, float]]]:
+        """Helper for autocomplete when a limit is specified.
 
-        child._insert_helper(value, weight, prefix, depth + 1)
-
-    def _insert_at_prefix_node(self, value: Any, weight: float) -> None:
-        """Create or update the leaf that stores <value> below this node.
-
-        Assumes this node is the internal node representing the full prefix.
+        This preserves the original behaviour of limiting by the number of
+        *subtrees explored* at this level, not by total number of matches.
         """
-        leaf = self._find_value_leaf(value)
-        if leaf is not None:
-            # Value already exists: add weight to that leaf.
-            leaf.weight += weight
-        else:
-            # Create a new leaf for this value.
-            leaf = SimplePrefixTree()
-            leaf.root = [value]
-            leaf.weight = weight
-            self.subtrees.append(leaf)
-
-    def _find_internal_child(self, prefix_str: str) -> SimplePrefixTree | None:
-        """Return the internal child whose root[0] == prefix_str, if it exists."""
-        for subtree in self.subtrees:
-            if (not subtree.is_leaf()
-                    and subtree.root
-                    and subtree.root[0] == prefix_str):
-                return subtree
-        return None
-
-    def _find_value_leaf(self, value: Any) -> SimplePrefixTree | None:
-        """Return the leaf subtree storing <value>, if it exists."""
-        for subtree in self.subtrees:
-            if subtree.is_leaf() and subtree.root and subtree.root[0] == value:
-                return subtree
-        return None
+        results = []
+        count = 0
+        for subtree in search_root.subtrees:
+            if count >= limit:
+                break
+            results.append(subtree.autocomplete(prefix, limit))
+            count += 1
+        return results
 
     ###########################################################################
     # Add code for Parts 1(c), 2, and 3 here
@@ -379,15 +339,92 @@ class SimplePrefixTree(Autocompleter):
             1) not in this Autocompleter, or
             2) was previously inserted with the SAME prefix sequence
         """
-        if not prefix:
-            # Degenerate case: no prefix, treat this node as the "prefix node".
-            # Create/update a leaf below this node.
-            self._insert_at_prefix_node(value, weight)
-        else:
-            self._insert_helper(value, weight, prefix, 0)
+        # Every node on the path gets its weight increased by <weight>.
+        self.weight += weight
 
-            # After insertion, maintain global ordering invariant.
-        decreasing_sort(self)
+        # Case 1: this node's prefix equals the full prefix sequence.
+        # We either update an existing leaf with this value, or create a new one.
+        if self.root == prefix:
+            # Try to find an existing leaf storing this value.
+            for st in self.subtrees:
+                if st.is_leaf() and st.root == [value]:
+                    # Duplicate value with same prefix: bump its weight and re-sort.
+                    st.weight += weight
+                    self.subtrees.sort(key=lambda t: t.weight, reverse=True)
+                    return
+
+            # No existing leaf with this value: create a new leaf.
+            leaf = SimplePrefixTree()
+            leaf.root = [value]  # leaf stores [value], matching your autocomplete.
+            leaf.weight = weight
+            leaf.subtrees = []
+
+            self.subtrees.append(leaf)
+            self.subtrees.sort(key=lambda t: t.weight, reverse=True)
+            return
+
+        # Case 2: we are at an internal node whose prefix is a proper prefix of <prefix>.
+        # The child we want has prefix one element longer than this node's prefix.
+        next_len = len(self.root) + 1
+        child_prefix = prefix[:next_len]
+
+        # Try to find an existing child with this prefix.
+        child = None
+        for st in self.subtrees:
+            # Internal nodes have list prefixes in .root; leaves are [value].
+            if not st.is_leaf() and st.root == child_prefix:
+                child = st
+                break
+
+        # If no such child exists, create it.
+        if child is None:
+            child = SimplePrefixTree()
+            child.root = child_prefix
+            # child.weight starts at 0; recursive insert will add <weight>.
+            self.subtrees.append(child)
+
+        # Recurse into the child.
+        child.insert(value, weight, prefix)
+
+        # Maintain invariant: subtrees sorted by non-increasing weight.
+        self.subtrees.sort(key=lambda t: t.weight, reverse=True)
+
+        #  my shit ##
+
+        # truth = False
+        # trees = make_trees(prefix, weight)
+        # if self.is_leaf():
+        #     self.weight += weight
+        #     return
+        # for subtree in trees:
+        #     if truth:
+        #         break
+        #     for tree in self.subtrees:
+        #         print("insert tree: ", subtree.root, "self tree: ", tree.root)
+        #         if subtree.root == tree.root:
+        #             truth = True
+        #             tree.insert(value, weight, prefix)
+        #             break
+        #
+        # if not truth:
+        #     val_tree = SimplePrefixTree(); val_tree.root = [value]; val_tree.weight = weight
+        #     trees[-1].subtrees.append(val_tree)
+        #     root_index = 0
+        #     for subtree in trees:
+        #         if subtree.root == self.root:
+        #             root_index = trees.index(subtree) + 1
+        #             break
+        #     for x in range(root_index, len(trees) - 1):
+        #         trees[x].subtrees.append(trees[x + 1])
+        #
+        #
+        #     self.subtrees.append(trees[root_index])
+        #
+        # decreasing_sort(self)
+        # self.weight += weight
+        #
+        # print(self)
+
 
     def autocomplete(self, prefix: list,
                      limit: int | None = None) -> list[tuple[Any, float]]:
@@ -426,24 +463,6 @@ class SimplePrefixTree(Autocompleter):
         results = dissolve_nested_tup_lst(raw_results)
         results.sort(key=lambda t: t[1], reverse=True)
         return results
-
-    def remove(self, prefix: list) -> None:
-        """Remove all values that match the given prefix.
-        """
-        if self.is_empty():
-            return
-
-        prefix_str = " ".join(prefix)
-        removed_weight = self._remove_prefix(prefix_str)
-
-        if removed_weight > 0.0:
-            self.weight -= removed_weight
-            if self.weight == 0.0:
-                # This tree becomes completely empty.
-                self.root = []
-                self.subtrees = []
-
-
 
 
 ################################################################################

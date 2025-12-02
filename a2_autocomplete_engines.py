@@ -122,6 +122,8 @@ class LetterAutocompleteEngine:
                     self.autocompleter.insert(line, 1.0, prefixes)
 
 
+
+
     def autocomplete(self, prefix: str | list, limit: int | None = None) -> list[tuple[str, float]]:
         """Return up to <limit> matches for the given prefix string.
 
@@ -138,7 +140,11 @@ class LetterAutocompleteEngine:
         - <prefix> is a sanitized string
         """
         if isinstance(prefix, str):
-            return self.autocompleter.autocomplete([prefix], limit)
+            prefix = sanitize(prefix)
+            chars = list(prefix)  # or make_prefixes_letter(prefix)
+            if not chars:
+                return []
+            return self.autocompleter.autocomplete(chars, limit)
         else:
             return self.autocompleter.autocomplete(prefix, limit)
 
@@ -205,10 +211,27 @@ class SentenceAutocompleteEngine:
 
         with open(config['file']) as csvfile:
             reader = csv.reader(csvfile)
-            for line in reader:
-                value = sanitize(line[0])
-                prefixes = make_prefixes_word(value)
-                self.autocompleter.insert(value, float(line[1]), prefixes)
+            reader = csv.reader(csvfile)
+            for row in reader:
+                if not row:
+                    continue
+
+                raw_text = row[0]
+                raw_weight = row[1]
+
+                text = sanitize(raw_text)
+
+                # Skip sanitized strings that don't contain at least one non-space character.
+                if not text.strip():
+                    continue
+
+                words = text.split()
+                if not words:
+                    continue
+
+                weight = float(raw_weight)
+                self.autocompleter.insert(text, weight, words)
+
 
     def autocomplete(self, prefix: str, limit: int | None = None) -> list[tuple[str, float]]:
         """Return up to <limit> matches for the given prefix string.
@@ -225,8 +248,16 @@ class SentenceAutocompleteEngine:
         - limit is None or limit > 0
         - <prefix> is a sanitized string
         """
-        return self.autocompleter.autocomplete([prefix], limit)
+        prefix = sanitize(prefix)
 
+        # Turn the prefix string into a list of words.
+        words = prefix.split()
+
+        # If there are no words, there can be no matches.
+        if not words:
+            return []
+
+        return self.autocompleter.autocomplete(words, limit)
 
     def remove(self, prefix: str) -> None:
         """Remove all strings that match the given prefix.
