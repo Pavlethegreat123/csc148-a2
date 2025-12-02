@@ -319,8 +319,54 @@ class MelodyAutocompleteEngine:
         with open(config['file']) as csvfile:
             reader = csv.reader(csvfile)
             for row in reader:
-                name = row[0]
+                if not row:
+                    continue  # skip completely empty lines
 
+                name = row[0].strip()
+                if name == '':
+                    continue  # skip melodies with no name
+
+                # Parse notes from the remaining entries.
+                # notes = self._parse_notes_from_row(row)
+                notes = []
+
+                for i in range(1, len(row), 2):
+                    pitch_str = row[i].strip()
+                    dur_str = row[i + 1].strip()
+
+                    # Stop at first blank entry.
+                    if pitch_str == '' or dur_str == '':
+                        break
+                    notes.append((int(pitch_str), int(dur_str)))
+
+                # Skip if we didn't get any valid notes.
+                if not notes:
+                    continue
+
+                melody = Melody(name, notes)
+
+                # Compute the interval sequence to use as the prefix.
+                # intervals = self._interval_sequence(notes)
+                intervals = []
+                for i in range(len(notes) - 1):
+                    intervals.append(notes[i + 1][0] - notes[i][0])
+
+                # Insert with weight 1.0.
+                self.autocompleter.insert(melody, 1.0, intervals)
+
+            # for row in reader:
+            #     name = row[0]
+            #     notes = []
+            #     for note in range(1, len(row), 2):
+            #         if row[note] != '' or row[note + 1] != '':
+            #             notes.append((int(row[note]), int(row[note + 1])))
+            #         else:
+            #             break
+            #
+            #     melody = Melody(name, notes)
+            #     self.autocompleter.insert(melody, 1.0, notes)
+
+        # print(self.autocompleter)
 
     def autocomplete(
         self, prefix: list[int], limit: int | None = None
@@ -335,9 +381,12 @@ class MelodyAutocompleteEngine:
         Preconditions:
         - limit is None or limit > 0
         """
+        return self.autocompleter.autocomplete(prefix, limit)
+
 
     def remove(self, prefix: list[int]) -> None:
         """Remove all melodies that match the given interval sequence."""
+        return self.autocompleter.remove([prefix])
 
 
 ###############################################################################

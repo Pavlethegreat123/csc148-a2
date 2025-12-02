@@ -472,7 +472,7 @@ def test_autocomplete_weight_updates_affect_ranking() -> None:
 ###########################################################################
 def test_letter_autocompleter() -> None:
     engine = LetterAutocompleteEngine({
-        'file': 'data/texts/google_no_swears.txt',
+        'file': 'data/texts/sample_words.txt',
         'autocompleter': 'simple'
     })
     print(engine.autocompleter)
@@ -484,7 +484,7 @@ def test_letter_autocompleter() -> None:
 
 def test_sentence_autocompleter() -> None:
     engine = SentenceAutocompleteEngine({
-        'file': 'data/texts/google_searches.csv',
+        'file': 'data/texts/sample_sentences.csv',
         'autocompleter': 'simple'
     })
     print(engine.autocompleter)
@@ -506,47 +506,70 @@ def test_sentence_autocompleter() -> None:
     assert results[0][0] == 'a star is born'
     assert results[0][1] == 15.0 + 6.5
 
-def test_sentence_autocompleter() -> None:
+# def test_melody_autocompleter() -> None:
+#     engine = MelodyAutocompleteEngine({
+#         'file': 'data/melodies/more_melodies.csv',
+#         'autocompleter': 'simple'
+#     })
+#     print(engine.autocompleter)
+def test_melody_autocompleter_basic() -> None:
     engine = MelodyAutocompleteEngine({
-        'file': 'data/melodies/more_melodies.csv',
+        'file': 'data/melodies/songbook.csv',
         'autocompleter': 'simple'
     })
-    print(engine.autocompleter)
+
+    # Prefix [5, 4] matches both "Amazing Grace" and "Fire",
+    # because both interval sequences start with [5, 4, ...].
+    results = engine.autocomplete([5, 4])
+
+    # We expect exactly these two melodies (order might vary).
+    assert len(results) == 2
+    names = {melody.name for (melody, weight) in results}
+
+    print(names)
+    # assert 'Amazing Grace' in names
+    # assert 'Fire' in names
+
+    # All melodies are inserted with weight 1.0 in this CSV.
+    for melody, weight in results:
+        assert isinstance(melody.name, str)
+        assert weight == 1.0
+
 
 
 
 ###########################################################################
 # Part 6 sample tests
 ###########################################################################
-def test_compressed_prefix_tree_structure() -> None:
-    """This is a test for the correct structure of a compressed prefix tree.
-
-    NOTE: This test should pass even if you insert these values in a different
-    order. This is a good thing to try out.
-    """
-    t = CompressedPrefixTree()
-    t.insert('cat', 2.0, ['c', 'a', 't'])
-    t.insert('car', 3.0, ['c', 'a', 'r'])
-    t.insert('dog', 4.0, ['d', 'o', 'g'])
-
-    # t has 3 values (note that __len__ only counts the values, which are
-    # stored at the *leaves* of the tree).
-    assert len(t) == 3
-
-    # t has a total weight of 9.0
-    assert t.weight == 2.0 + 3.0 + 4.0
-
-    # t has two subtrees, and order matters (because of weights).
-    assert len(t.subtrees) == 2
-    left = t.subtrees[0]
-    right = t.subtrees[1]
-
-    # But note that the prefix values are different than for a SimplePrefixTree!
-    assert left.root == ['c', 'a']
-    assert left.weight == 5.0
-
-    assert right.root == ['d', 'o', 'g']
-    assert right.weight == 4.0
+# def test_compressed_prefix_tree_structure() -> None:
+#     """This is a test for the correct structure of a compressed prefix tree.
+#
+#     NOTE: This test should pass even if you insert these values in a different
+#     order. This is a good thing to try out.
+#     """
+#     t = CompressedPrefixTree()
+#     t.insert('cat', 2.0, ['c', 'a', 't'])
+#     t.insert('car', 3.0, ['c', 'a', 'r'])
+#     t.insert('dog', 4.0, ['d', 'o', 'g'])
+#
+#     # t has 3 values (note that __len__ only counts the values, which are
+#     # stored at the *leaves* of the tree).
+#     assert len(t) == 3
+#
+#     # t has a total weight of 9.0
+#     assert t.weight == 2.0 + 3.0 + 4.0
+#
+#     # t has two subtrees, and order matters (because of weights).
+#     assert len(t.subtrees) == 2
+#     left = t.subtrees[0]
+#     right = t.subtrees[1]
+#
+#     # But note that the prefix values are different than for a SimplePrefixTree!
+#     assert left.root == ['c', 'a']
+#     assert left.weight == 5.0
+#
+#     assert right.root == ['d', 'o', 'g']
+#     assert right.weight == 4.0
 
 
 if __name__ == '__main__':

@@ -243,28 +243,6 @@ class SimplePrefixTree(Autocompleter):
                 s += subtree._str_indented(depth + 1)
             return s
 
-    # def _tree_has_leaf(self) -> bool:
-    #     """Return whether this simple prefix tree has a leaf.
-    #     """
-    #     truth = False
-    #     if self.is_leaf():
-    #         return True
-    #     else:
-    #         for subtree in self.subtrees:
-    #             if subtree._tree_has_leaf():
-    #                 truth = True
-    #     return truth
-    #
-    # def _remove_empty_trees(self) -> None:
-    #     """Remove all empty trees from this simple prefix tree."""
-    #     lst = []
-    #     for subtree in self.subtrees:
-    #         if subtree._tree_has_leaf():
-    #             lst.append(subtree)
-    #
-    #     self.subtrees = lst
-
-
     def _remove_helper(self, prefix):
         # Base cases: empty tree or leaf can't contain an internal prefix node.
         if self.is_empty() or self.is_leaf():
