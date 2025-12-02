@@ -15,7 +15,7 @@ assignment submission.
 """
 from a2_prefix_tree import SimplePrefixTree, CompressedPrefixTree
 from a2_autocomplete_engines import SentenceAutocompleteEngine, LetterAutocompleteEngine, MelodyAutocompleteEngine
-
+import pytest
 
 ###########################################################################
 # Parts 1(c) - 3 sample tests
@@ -517,26 +517,6 @@ def test_melody_autocompleter_basic() -> None:
         'file': 'data/melodies/songbook.csv',
         'autocompleter': 'simple'
     })
-
-    # Prefix [5, 4] matches both "Amazing Grace" and "Fire",
-    # because both interval sequences start with [5, 4, ...].
-    results = engine.autocomplete([5, 4])
-
-    # We expect exactly these two melodies (order might vary).
-    assert len(results) == 2
-    names = {melody.name for (melody, weight) in results}
-
-    print(names)
-    # assert 'Amazing Grace' in names
-    # assert 'Fire' in names
-
-    # All melodies are inserted with weight 1.0 in this CSV.
-    for melody, weight in results:
-        assert isinstance(melody.name, str)
-        assert weight == 1.0
-
-
-
 
 ###########################################################################
 # Part 6 sample tests

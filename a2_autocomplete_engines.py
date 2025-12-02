@@ -157,7 +157,10 @@ class LetterAutocompleteEngine:
         Preconditions:
         - <prefix> is a sanitized string
         """
-        self.autocompleter.remove([prefix])
+        prefix = sanitize(prefix)
+        chars = list(prefix)
+        if chars:
+            self.autocompleter.remove(chars)
 
 
 @check_contracts
@@ -267,7 +270,10 @@ class SentenceAutocompleteEngine:
         Preconditions:
         - <prefix> is a sanitized string
         """
-        self.autocompleter.remove([prefix])
+        prefix = sanitize(prefix)
+        words = prefix.split()
+        if words:
+            self.autocompleter.remove(words)
 
 
 ################################################################################
@@ -326,11 +332,12 @@ class MelodyAutocompleteEngine:
                 if name == '':
                     continue  # skip melodies with no name
 
-                # Parse notes from the remaining entries.
-                # notes = self._parse_notes_from_row(row)
                 notes = []
-
+                # Guard against odd-length rows
                 for i in range(1, len(row), 2):
+                    if i + 1 >= len(row):
+                        break
+
                     pitch_str = row[i].strip()
                     dur_str = row[i + 1].strip()
 
@@ -345,11 +352,10 @@ class MelodyAutocompleteEngine:
 
                 melody = Melody(name, notes)
 
-                # Compute the interval sequence to use as the prefix.
-                # intervals = self._interval_sequence(notes)
-                intervals = []
-                for i in range(len(notes) - 1):
-                    intervals.append(notes[i + 1][0] - notes[i][0])
+                # Compute interval sequence as prefix.
+                intervals: list[int] = []
+                for j in range(len(notes) - 1):
+                    intervals.append(notes[j + 1][0] - notes[j][0])
 
                 # Insert with weight 1.0.
                 self.autocompleter.insert(melody, 1.0, intervals)
@@ -386,7 +392,7 @@ class MelodyAutocompleteEngine:
 
     def remove(self, prefix: list[int]) -> None:
         """Remove all melodies that match the given interval sequence."""
-        return self.autocompleter.remove([prefix])
+        self.autocompleter.remove(prefix)
 
 
 ###############################################################################
