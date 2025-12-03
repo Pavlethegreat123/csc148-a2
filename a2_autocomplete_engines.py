@@ -22,6 +22,7 @@ from python_ta.contracts import check_contracts
 from a2_melody import Melody
 from a2_prefix_tree import Autocompleter, SimplePrefixTree, CompressedPrefixTree
 
+
 def make_prefixes_letter(line: str) -> list[str]:
     """
     Returns a list of prefixes for a given word
@@ -30,8 +31,10 @@ def make_prefixes_letter(line: str) -> list[str]:
     ['c', 'a', 't']
     """
     prefixes = []
-    [prefixes.append(letter) for letter in line]
+    for letter in line:
+        prefixes.append(letter)
     return prefixes
+
 
 def make_prefixes_word(line: str) -> list[str]:
     """
@@ -68,6 +71,8 @@ def sanitize(line:str) -> str:
 ################################################################################
 # Text-based Autocomplete Engines (Task 4)
 ################################################################################
+
+
 @check_contracts
 class LetterAutocompleteEngine:
     """An autocomplete engine that suggests strings based on a few letters.
@@ -117,12 +122,10 @@ class LetterAutocompleteEngine:
         with open(config['file'], encoding='utf8') as f:
             for line in f:
                 line = sanitize(line)
-                if not line.isspace():
-                    prefixes = make_prefixes_letter(line)
-                    self.autocompleter.insert(line, 1.0, prefixes)
-
-
-
+                if line.strip() == '':
+                    continue
+                prefixes = make_prefixes_letter(line)
+                self.autocompleter.insert(line, 1.0, prefixes)
 
     def autocomplete(self, prefix: str | list, limit: int | None = None) -> list[tuple[str, float]]:
         """Return up to <limit> matches for the given prefix string.
@@ -233,7 +236,6 @@ class SentenceAutocompleteEngine:
 
                 weight = float(raw_weight)
                 self.autocompleter.insert(text, weight, words)
-
 
     def autocomplete(self, prefix: str, limit: int | None = None) -> list[tuple[str, float]]:
         """Return up to <limit> matches for the given prefix string.
@@ -389,7 +391,6 @@ class MelodyAutocompleteEngine:
         """
         return self.autocompleter.autocomplete(prefix, limit)
 
-
     def remove(self, prefix: list[int]) -> None:
         """Remove all melodies that match the given interval sequence."""
         self.autocompleter.remove(prefix)
@@ -483,15 +484,15 @@ if __name__ == '__main__':
     # you see "None!" under both "Code Errors" and "Style and Convention Errors".
     # TIP: To quickly uncomment lines in PyCharm, select the lines below and press
     # "Ctrl + /" or "⌘ + /".
-    # import python_ta
-    # python_ta.check_all(
-    #     config={
-    #         'allowed-io': [
-    #             'LetterAutocompleteEngine.__init__',
-    #             'SentenceAutocompleteEngine.__init__',
-    #             'MelodyAutocompleteEngine.__init__'
-    #         ],
-    #         'extra-imports': ['csv', 'time', 'sys', 'a2_prefix_tree', 'a2_melody'],
-    #         'max-line-length': 100,
-    #     }
-    # )
+    import python_ta
+    python_ta.check_all(
+        config={
+            'allowed-io': [
+                'LetterAutocompleteEngine.__init__',
+                'SentenceAutocompleteEngine.__init__',
+                'MelodyAutocompleteEngine.__init__'
+            ],
+            'extra-imports': ['csv', 'time', 'sys', 'a2_prefix_tree', 'a2_melody'],
+            'max-line-length': 100,
+        }
+    )

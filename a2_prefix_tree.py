@@ -16,21 +16,12 @@ top-level functions to this file.
 """
 from __future__ import annotations
 
-from idlelib.autocomplete import AutoComplete
 from typing import Any
 from python_ta.contracts import check_contracts
 
-def find_if_leaf_exist(value: Any, tree: Autocompleter) -> bool:
-    truth = False
-    for subtree in tree:
-        if subtree == value:
-            truth = True
-        else:
-            truth = find_prefix_tree(value, subtree)
-    return truth
-
 
 def find_prefix_tree(prefix: str, tree: SimplePrefixTree) -> SimplePrefixTree | None:
+    "Returns the prefix tree for the given prefix"
     ret_tree = None
     if not tree.root:
         for subtree in tree.subtrees:
@@ -51,7 +42,6 @@ def make_trees(prefix: list, weight: float) -> list[SimplePrefixTree]:
     """
     Returns a list of all the trees that can be made from the prefix
     >>> var = make_trees(['a', 'b', 'c'], 1.0)
-
     """
     lst = []
     for letter in range(1, len(prefix) + 1):
@@ -67,7 +57,7 @@ def make_trees(prefix: list, weight: float) -> list[SimplePrefixTree]:
     return lst
 
 
-def dissolve_nested_tup_lst(obj: list | tuple):
+def dissolve_nested_tup_lst(obj: list | tuple) -> list:
     """
     >>> dissolve_nested_tup_lst([(1,5), [[(21,1)]], (3,1),[(4,2)]])
     [(1, 5), (21, 1), (3, 1), (4, 2)]
@@ -83,6 +73,7 @@ def dissolve_nested_tup_lst(obj: list | tuple):
 
 
 def decreasing_sort(tree: SimplePrefixTree) -> None:
+    """Sorts the following tree in decreasing order:"""
     tree.subtrees.sort(key=lambda obj: obj.weight, reverse=True)
     for subtree in tree.subtrees:
         decreasing_sort(subtree)
@@ -243,7 +234,7 @@ class SimplePrefixTree(Autocompleter):
                 s += subtree._str_indented(depth + 1)
             return s
 
-    def _remove_helper(self, prefix):
+    def _remove_helper(self, prefix: list) -> float:
         # Base cases: empty tree or leaf can't contain an internal prefix node.
         if self.is_empty() or self.is_leaf():
             return 0.0
@@ -364,7 +355,6 @@ class SimplePrefixTree(Autocompleter):
         # No match.
         return []
 
-
     ###########################################################################
     # Add code for Parts 1(c), 2, and 3 here
     ###########################################################################
@@ -436,43 +426,6 @@ class SimplePrefixTree(Autocompleter):
         # Maintain invariant: subtrees sorted by non-increasing weight.
         self.subtrees.sort(key=lambda t: t.weight, reverse=True)
 
-        #  my shit ##
-
-        # truth = False
-        # trees = make_trees(prefix, weight)
-        # if self.is_leaf():
-        #     self.weight += weight
-        #     return
-        # for subtree in trees:
-        #     if truth:
-        #         break
-        #     for tree in self.subtrees:
-        #         print("insert tree: ", subtree.root, "self tree: ", tree.root)
-        #         if subtree.root == tree.root:
-        #             truth = True
-        #             tree.insert(value, weight, prefix)
-        #             break
-        #
-        # if not truth:
-        #     val_tree = SimplePrefixTree(); val_tree.root = [value]; val_tree.weight = weight
-        #     trees[-1].subtrees.append(val_tree)
-        #     root_index = 0
-        #     for subtree in trees:
-        #         if subtree.root == self.root:
-        #             root_index = trees.index(subtree) + 1
-        #             break
-        #     for x in range(root_index, len(trees) - 1):
-        #         trees[x].subtrees.append(trees[x + 1])
-        #
-        #
-        #     self.subtrees.append(trees[root_index])
-        #
-        # decreasing_sort(self)
-        # self.weight += weight
-        #
-        # print(self)
-
-
     def autocomplete(self, prefix: list,
                      limit: int | None = None) -> list[tuple[Any, float]]:
         """Return up to <limit> matches for the given prefix.
@@ -540,11 +493,116 @@ class CompressedPrefixTree(SimplePrefixTree):
     Representation Invariants:
     - (NEW) This tree does not contain any compressible internal values.
     """
-    subtrees: list[CompressedPrefixTree]  # Note the different type annotation
+    subtrees: list['CompressedPrefixTree']
+    _simple: SimplePrefixTree
 
-    ###########################################################################
-    # Add code for Part 6 here
-    ###########################################################################
+    def __init__(self) -> None:
+        """Initialize an empty compressed prefix tree."""
+        # Initialize as an (empty) SimplePrefixTree
+        super().__init__()
+        # Private underlying uncompressed tree we rebuild from
+        self._simple: SimplePrefixTree = SimplePrefixTree()
+
+    # ---------------------------------------------------------------------
+    # Public methods: insert / remove delegate to the simple tree and then
+    # rebuild the *compressed* representation (self.root/subtrees/weight).
+    # ---------------------------------------------------------------------
+    def insert(self, value: Any, weight: float, prefix: list) -> None:
+        """Insert the given value into this compressed tree."""
+        # Update underlying simple tree
+        self._simple.insert(value, weight, prefix)
+        # Rebuild this compressed tree from the simple one
+        self._rebuild_from_simple()
+
+    # ---------------------------------------------------------------------
+    # Private helpers for rebuilding the compressed tree
+    # ---------------------------------------------------------------------
+    def _rebuild_from_simple(self) -> None:
+        """Rebuild this compressed tree from self._simple."""
+        # If the underlying simple tree is empty, this tree is empty.
+        if self._simple.is_empty():
+            self.root = []
+            self.subtrees = []
+            self.weight = 0.0
+            return
+
+        # Root of compressed tree always has prefix [] (per handout/tests).
+        self.root = []
+        self.weight = self._simple.weight
+        self.subtrees = []
+
+        # Compress each *child* of the simple root, but never the root itself
+        for child in self._simple.subtrees:
+            compressed_child = self._compress_node(child)
+            self.subtrees.append(compressed_child)
+
+        # Maintain weight ordering
+        self.subtrees.sort(key=lambda st: st.weight, reverse=True)
+
+    def _compress_node(self, node: SimplePrefixTree) -> 'CompressedPrefixTree':
+        """Return a compressed version of the given non-empty simple subtree.
+
+        This follows single-child internal chains and merges them into one node,
+        stopping when either:
+          - we reach a leaf, or
+          - the node has 0 or >= 2 children, or
+          - the single child is a leaf.
+        """
+        # Follow compressible chain starting at node
+        current = node
+        while (not current.is_leaf()
+               and len(current.subtrees) == 1
+               and not current.subtrees[0].is_leaf()):
+            current = current.subtrees[0]
+
+        # Create the compressed node corresponding to `current`
+        comp = CompressedPrefixTree()
+        comp.root = list(current.root) if isinstance(current.root, list) else current.root
+        comp.weight = current.weight
+        comp.subtrees = []
+
+        # Recursively compress its children
+        for child in current.subtrees:
+            if child.is_leaf():
+                # Copy leaf as a compressed leaf
+                leaf = CompressedPrefixTree()
+                leaf.root = list(child.root) if isinstance(child.root, list) else child.root
+                leaf.weight = child.weight
+                leaf.subtrees = []
+                comp.subtrees.append(leaf)
+            else:
+                comp.subtrees.append(self._compress_node(child))
+
+        comp.subtrees.sort(key=lambda st: st.weight, reverse=True)
+        return comp
+
+
+    def autocomplete(
+        self,
+        prefix: list,
+        limit: int | None = None
+    ) -> list[tuple[Any, float]]:
+        """Return up to <limit> matches for the given prefix.
+
+        This delegates the actual search to the underlying SimplePrefixTree
+        (self._simple), so the behaviour is identical to a SimplePrefixTree
+        that stores the same values and prefixes.
+        """
+        return self._simple.autocomplete(prefix, limit)
+
+    def remove(self, prefix: list) -> None:
+        """Remove all values that match the given prefix.
+
+        We mutate the underlying SimplePrefixTree, and then rebuild this
+        compressed tree from it so that the representation invariants
+        (no compressible internal nodes, subtrees sorted by weight, etc.)
+        are maintained.
+        """
+        # Mutate underlying uncompressed tree
+        self._simple.remove(prefix)
+
+        # Rebuild the compressed representation from _simple
+        self._rebuild_from_simple()
 
 
 if __name__ == '__main__':
@@ -561,8 +619,8 @@ if __name__ == '__main__':
     # you see "None!" under both "Code Errors" and "Style and Convention Errors".
     # TIP: To quickly uncomment lines in PyCharm, select the lines below and press
     # "Ctrl + /" or "⌘ + /".
-    # import python_ta
-    # python_ta.check_all(config={
-    #     'max-line-length': 100,
-    #     'max-nested-blocks': 4
-    # })
+    import python_ta
+    python_ta.check_all(config={
+        'max-line-length': 100,
+        'max-nested-blocks': 4
+    })
